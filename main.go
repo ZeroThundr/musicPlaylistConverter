@@ -4,22 +4,32 @@ import (
 	"fmt"
 )
 
-//Function for converting spotify playlist to a YouTube playlist
-/*func spotifyToYoutube() {
+func getSpotifyPlaylist() { //gets spotify playlist and writes it to a text file
+
+}
+func createSpotifyPlaylist() { //creates spotify playlist from the text file that is a playlist
+}
+
+func getYouTubePlaylist() { //gets YouTube playlist and writes it to a text file
 
 }
 
-//Function for converting a YouTube playlist to a Spotify playlist
-func youTubeToSpotify() {
+func getApplePlaylist() { //retrieves apple music playlist and stores it as a text file
 
-}*/
+}
+
+func createApplePlaylist() { //creates apple music playlist from the playlist file
+
+}
 func main() {
-	//var start int
-	//var finish int
+	var start int
+	var finish int
 	//Ask what they are converting from, and assign to start
-	fmt.Println("What are you converting from?")
 	fmt.Println("1. Spotify | 2. YouTube | 3. Apple Music")
+	fmt.Println("What are you converting from?")
+	fmt.Scan(&start)
 	//ask what they are converting to, and assign to finish
-	fmt.Println("What are you converting to?\n1. Spotify | 2. YouTube | 3. Apple Music")
-
+	fmt.Println("What are you converting to?")
+	fmt.Scan(&finish)
+	fmt.Println(start, finish)
 }
