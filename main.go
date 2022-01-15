@@ -1,5 +1,7 @@
 package spotifyYoutubeConverter
 
-func main() {
+import "fmt"
 
+func main() {
+	fmt.Println("Stop deleting this")
 }
