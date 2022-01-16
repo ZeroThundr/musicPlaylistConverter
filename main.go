@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func getSpotifyPlaylist() { //gets spotify playlist and writes it to a text file
+/*func getSpotifyPlaylist() { //gets spotify playlist and writes it to a text file
 
 }
 func createSpotifyPlaylist() { //creates spotify playlist from the text file that is a playlist
@@ -18,8 +18,21 @@ func getApplePlaylist() { //retrieves apple music playlist and stores it as a te
 
 }
 
-func createApplePlaylist() { //creates apple music playlist from the playlist file
+func createApplePlaylist() { //creates Apple Music playlist from the playlist file
 
+}*/
+//picks the names for the converter
+func chooser(number int) string {
+	switch number {
+	case 1:
+		return "Spotify"
+	case 2:
+		return "YouTube"
+	case 3:
+		return "Apple Music"
+	default:
+		return "ERR0R"
+	}
 }
 func main() {
 	var start int
@@ -30,6 +43,10 @@ func main() {
 	fmt.Scan(&start)
 	//ask what they are converting to, and assign to finish
 	fmt.Println("What are you converting to?")
-	fmt.Scan(&finish)
+	scan, err := fmt.Scan(&finish)
+	if err != nil {
+		return
+	}
+	fmt.Println("You are converting from", chooser(start), "to", chooser(finish))
 	fmt.Println(start, finish)
 }
