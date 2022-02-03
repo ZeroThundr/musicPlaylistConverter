@@ -20,7 +20,7 @@ func determineFlow() (int, int) { //gets user input for program flow
 }
 
 func getSpotifyPlaylist() map[string]string { //gets spotify playlist and writes it to a text file
-	fmt.Println("Retrieved spotify playlist")
+	fmt.Println("Retrieved spotify playlist") //placeholder for testing
 	playlist := make(map[string]string)
 	return playlist
 }
@@ -53,22 +53,21 @@ func main() {
 	var finish int
 	playlist := make(map[string]string)
 
-	//Ask what they are converting from, and assign to start
-	start, finish = determineFlow()
-	for {
-		if start == finish {
+	start, finish = determineFlow() //Ask what they are converting to and from, and assign to start and finish
+	for {                           //checks that available options were selected and that start and finish are different. If either is false loop until both are true.
+		if start == finish { //checks if start and finish are the same
 			fmt.Println("Please make sure your start and ending services are different")
 			start, finish = determineFlow()
 			continue
-		} else if start != 1 && start != 2 && start != 3 {
+		} else if start != 1 && start != 2 && start != 3 { // check start to make sure it is an available option
 			fmt.Println("Please select a provided option.")
 			start, finish = determineFlow()
 			continue
-		} else if finish != 1 && finish != 2 && finish != 3 {
+		} else if finish != 1 && finish != 2 && finish != 3 { // check finish to make sure it is an available option
 			fmt.Println("Please select a provided option.")
 			start, finish = determineFlow()
 			continue
-		} else {
+		} else { //break out of loop once all conditions satisfied
 			break
 		}
 	}
@@ -81,6 +80,7 @@ func main() {
 	case 3:
 		playlist = getApplePlaylist()
 	}
+	//copy playlist to other service
 	switch finish {
 	case 1:
 		createSpotifyPlaylist(playlist)
@@ -89,6 +89,6 @@ func main() {
 	case 3:
 		createApplePlaylist(playlist)
 	}
-	//this for loop prints out all the songs that couldn't be cloned
+	//print failed songs to text file.
 
 }
