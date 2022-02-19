@@ -132,7 +132,25 @@ func getYouTubePlaylist() map[string]string { //gets YouTube playlist and writes
 	playlist := make(map[string]string)
 	return playlist
 }
+
 func createYouTubePlaylist(playlist map[string]string) {
+	ctx := context.Background()
+
+	b, err := ioutil.ReadFile("client_secret.json")
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
+
+	// If modifying these scopes, delete your previously saved credentials
+	// at ~/.credentials/youtube-go-quickstart.json
+	config, err := google.ConfigFromJSON(b, youtube.YoutubepartnerScope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	client := getGoogleClient(ctx, config)
+	service, err := youtube.New(client)
+
+	handleError(err, "Error creating YouTube client")
 	fmt.Println("created youtube playlist")
 }
 
