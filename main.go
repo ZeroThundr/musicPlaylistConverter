@@ -34,7 +34,11 @@ func saveGoogleToken(file string, token *oauth2.Token) {
 	if err != nil {
 		log.Fatalf("Unable to cache oauth token: %v", err)
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+		}
+	}(f)
 	json.NewEncoder(f).Encode(token)
 }
 func googleTokenFromFile(file string) (*oauth2.Token, error) {
@@ -44,7 +48,11 @@ func googleTokenFromFile(file string) (*oauth2.Token, error) {
 	}
 	t := &oauth2.Token{}
 	err = json.NewDecoder(f).Decode(t)
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+		}
+	}(f)
 	return t, err
 }
 func googleTokenCacheFile() (string, error) {
@@ -53,7 +61,10 @@ func googleTokenCacheFile() (string, error) {
 		return "", err
 	}
 	tokenCacheDir := filepath.Join(usr.HomeDir, ".credentials")
-	os.MkdirAll(tokenCacheDir, 0700)
+	err := os.MkdirAll(tokenCacheDir, 0700)
+	if err != nil {
+		return "", err
+	}
 	return filepath.Join(tokenCacheDir,
 		url.QueryEscape("youtube-go-quickstart.json")), err
 }
@@ -126,9 +137,10 @@ func getYouTubePlaylist() map[string]string { //gets YouTube playlist and writes
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
 	client := getGoogleClient(ctx, config)
-	service, err := youtube.New(client)
+	service, err := youtube.NewService(ctx)
 
 	handleError(err, "Error creating YouTube client")
+
 	playlist := make(map[string]string)
 	return playlist
 }
@@ -152,16 +164,6 @@ func createYouTubePlaylist(playlist map[string]string) {
 
 	handleError(err, "Error creating YouTube client")
 	fmt.Println("created youtube playlist")
-}
-
-func getApplePlaylist() map[string]string { //retrieves Apple Music playlist and stores it as a text file
-	fmt.Println("Retrieved Apple playlist")
-	playlist := make(map[string]string)
-	return playlist
-}
-
-func createApplePlaylist(playlist map[string]string) { //creates Apple Music playlist from the playlist file
-	fmt.Println("Added songs to apple music")
 }
 func main() {
 	var start int
@@ -192,8 +194,6 @@ func main() {
 		playlist = getSpotifyPlaylist()
 	case 2:
 		playlist = getYouTubePlaylist()
-	case 3:
-		playlist = getApplePlaylist()
 	}
 	//copy playlist to other service
 	switch finish {
@@ -201,8 +201,7 @@ func main() {
 		createSpotifyPlaylist(playlist)
 	case 2:
 		createYouTubePlaylist(playlist)
-	case 3:
-		createApplePlaylist(playlist)
+
 	}
 	//print failed songs to text file.
 
