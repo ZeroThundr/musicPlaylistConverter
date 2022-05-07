@@ -1,20 +1,20 @@
 package main
 
 import (
-	"encoding/json"
+	_ "encoding/json"
 	"fmt"
+	"golang.org/x/net/context"
+	_ "golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	_ "golang.org/x/oauth2/spotify"
+	"google.golang.org/api/youtube/v3"
 	"io/ioutil"
 	"log"
-	"net/http"
-	"net/url"
-	"os"
-	"os/user"
-	"path/filepath"
-
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
-	"google.golang.org/api/youtube/v3"
+	_ "net/http"
+	_ "net/url"
+	_ "os"
+	_ "os/user"
+	_ "path/filepath"
 )
 
 /*const missingClientSecretsMessage = `
@@ -28,80 +28,12 @@ func handleError(err error, message string) {
 		log.Fatalf(message+": %v", err.Error())
 	}
 }
-func saveGoogleToken(file string, token *oauth2.Token) {
-	fmt.Printf("Saving credential file to: %s\n", file)
-	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		log.Fatalf("Unable to cache oauth token: %v", err)
-	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-		}
-	}(f)
-	json.NewEncoder(f).Encode(token)
-}
-func googleTokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	t := &oauth2.Token{}
-	err = json.NewDecoder(f).Decode(t)
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-		}
-	}(f)
-	return t, err
-}
-func googleTokenCacheFile() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-	tokenCacheDir := filepath.Join(usr.HomeDir, ".credentials")
-	err := os.MkdirAll(tokenCacheDir, 0700)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(tokenCacheDir,
-		url.QueryEscape("youtube-go-quickstart.json")), err
-}
-func getGoogleTokenFromWeb(config *oauth2.Config) *oauth2.Token {
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the "+
-		"authorization code: \n%v\n", authURL)
-
-	var code string
-	if _, err := fmt.Scan(&code); err != nil {
-		log.Fatalf("Unable to read authorization code %v", err)
-	}
-
-	tok, err := config.Exchange(oauth2.NoContext, code)
-	if err != nil {
-		log.Fatalf("Unable to retrieve token from web %v", err)
-	}
-	return tok
-}
-func getGoogleClient(ctx context.Context, config *oauth2.Config) *http.Client {
-	cacheFile, err := googleTokenCacheFile()
-	if err != nil {
-		log.Fatalf("Unable to get path to cached credential file. %v", err)
-	}
-	tok, err := googleTokenFromFile(cacheFile)
-	if err != nil {
-		tok = getGoogleTokenFromWeb(config)
-		saveGoogleToken(cacheFile, tok)
-	}
-	return config.Client(ctx, tok)
-}
 
 func determineFlow() (int, int) { //gets user input for program flow
 	var start int
 	var finish int
-	chooser := []string{"Spotify", "YouTube", "Apple Music"}
-	fmt.Println("1. Spotify | 2. YouTube | 3. Apple Music")
+	chooser := []string{"Spotify", "YouTube" /*, "Apple Music"*/}
+	fmt.Println("1. Spotify " + "| 2. YouTube " /*+"| 3. Apple Music"*/)
 	fmt.Println("What are you converting from?")
 	fmt.Scan(&start)
 	//ask what they are converting to, and assign to finish
@@ -130,8 +62,6 @@ func getYouTubePlaylist() map[string]string { //gets YouTube playlist and writes
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
 
-	// If modifying these scopes, delete your previously saved credentials
-	// at ~/.credentials/youtube-go-quickstart.json
 	config, err := google.ConfigFromJSON(b, youtube.YoutubeReadonlyScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
@@ -160,7 +90,7 @@ func createYouTubePlaylist(playlist map[string]string) {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
 	client := getGoogleClient(ctx, config)
-	service, err := youtube.New(client)
+	service, err := youtube.NewService(client)
 
 	handleError(err, "Error creating YouTube client")
 	fmt.Println("created youtube playlist")
