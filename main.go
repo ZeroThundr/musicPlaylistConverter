@@ -18,6 +18,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 /*const missingClientSecretsMessage = `
@@ -276,6 +277,7 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 	//ctx := context.Background()
 	playlist := make([]string, 0)
 	part := []string{"snippet"}
+	trimThis := "https://www.youtube.com/playlist?list="
 	/*b, err := ioutil.ReadFile("client_secret.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
@@ -287,7 +289,10 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 		log.Fatalf("Error creating YouTube client: %v", err)
 	}
 
-	var playlistId = "PL1q3UCTMFFnrNb236IePHLSzHl7oQGOTo" // Print the playlist ID for the list of uploaded videos.
+	var playlistId string // Print the playlist ID for the list of uploaded videos.
+	fmt.Println("Please input a link to your playlist or your playlist ID")
+	fmt.Scan(&playlistId)
+	playlistId = strings.TrimPrefix(playlistId, trimThis)
 	fmt.Printf("Videos in list %s\r\n", playlistId)
 
 	nextPageToken := ""
