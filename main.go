@@ -40,10 +40,10 @@ func handleError(err error, message string) {
 //   2. Define authorized redirect URIs for the credential in the Google APIs
 //      Console and set the RedirectURL property on the config object to one
 //      of those redirect URIs. For example:
-//      config.RedirectURL = "http://localhost:8090"
+//      config.RedirectURL = "http://localhost:8080"
 //   3. In the startWebServer function below, update the URL in this line
 //      to match the redirect URI you selected:
-//         listener, err := net.Listen("tcp", "localhost:8090")
+//         listener, err := net.Listen("tcp", "localhost:8080")
 //      The redirect URI identifies the URI to which the user is sent after
 //      completing the authorization flow. The listener then captures the
 //      authorization code in the URL and passes it back to this script.
@@ -54,7 +54,7 @@ func handleError(err error, message string) {
 //      config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
 //   3. When running the script, complete the auth flow. Then copy the
 //      authorization code from the browser and enter it on the command line.
-const launchWebServer = false
+const launchWebServer = true
 
 const missingClientSecretsMessage = `
 Please configure OAuth 2.0
@@ -72,7 +72,7 @@ https://developers.google.com/api-client-library/python/guide/aaa_client_secrets
 func getGoogleClient(scope string) *http.Client {
 	ctx := context.Background()
 
-	b, err := ioutil.ReadFile("client_secret.json")
+	b, err := ioutil.ReadFile("googleClientSecret.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
@@ -86,7 +86,7 @@ func getGoogleClient(scope string) *http.Client {
 
 	// Use a redirect URI like this for a web app. The redirect URI must be a
 	// valid one for your OAuth2 credentials.
-	config.RedirectURL = "http://localhost:8090"
+	config.RedirectURL = "http://localhost:8080"
 	// Use the following redirect URI if launchWebServer=false in oauth2.go
 	// config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
 
@@ -114,7 +114,7 @@ func getGoogleClient(scope string) *http.Client {
 // startWebServer starts a web server that listens on http://localhost:8080.
 // The webserver waits for an oauth code in the three-legged auth flow.
 func startWebServer() (codeCh chan string, err error) {
-	listener, err := net.Listen("tcp", "localhost:8090")
+	listener, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
 		return nil, err
 	}
@@ -274,8 +274,7 @@ func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from 
 
 func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a text file
 	//ctx := context.Background()
-	playlistLength := 5
-	playlist := make([]string, playlistLength)
+	playlist := make([]string, 0)
 	part := []string{"snippet"}
 	/*b, err := ioutil.ReadFile("client_secret.json")
 	if err != nil {
@@ -299,6 +298,7 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 		for _, playlistItem := range playlistResponse.Items {
 			title := playlistItem.Snippet.Title
 			videoId := playlistItem.Snippet.ResourceId.VideoId
+			playlist = append(playlist, title)
 			fmt.Printf("%v, (%v)\r\n", title, videoId)
 		}
 
@@ -336,7 +336,7 @@ func createYouTubePlaylist(playlist []string) {
 func main() {
 	var start int
 	var finish int
-	playlist := make([]string, 1)
+	var playlist []string
 
 	start, finish = determineFlow() //Ask what they are converting to and from, and assign to start and finish
 	for {                           //checks that available options were selected and that start and finish are different. If either is false loop until both are true.
@@ -367,8 +367,10 @@ func main() {
 	switch finish {
 	case 1:
 		createSpotifyPlaylist(playlist)
+		println(playlist[1])
 	case 2:
 		createYouTubePlaylist(playlist)
+		println(playlist[1])
 
 	}
 }
