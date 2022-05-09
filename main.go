@@ -277,6 +277,7 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 	playlist := make([]string, 0)
 	part := []string{"snippet"}
 	trimThis := "https://www.youtube.com/playlist?list="
+	undesiredVideoTitles := []string{"[official music video]", "[official lyric video]", "[official video]", "[official audio]", "[audio]", "[video]", "[animated music video]", "(official music video)", "(official video)", "(official audio)", "(audio)", "(video)", "(animated music video)"}
 	client := getGoogleClient(youtube.YoutubeReadonlyScope)
 	service, err := youtube.New(client)
 
