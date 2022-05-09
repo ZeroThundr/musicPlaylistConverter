@@ -274,14 +274,9 @@ func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from 
 }
 
 func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a text file
-	//ctx := context.Background()
 	playlist := make([]string, 0)
 	part := []string{"snippet"}
 	trimThis := "https://www.youtube.com/playlist?list="
-	/*b, err := ioutil.ReadFile("client_secret.json")
-	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
-	}*/
 	client := getGoogleClient(youtube.YoutubeReadonlyScope)
 	service, err := youtube.New(client)
 
