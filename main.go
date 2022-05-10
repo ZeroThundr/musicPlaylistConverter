@@ -297,8 +297,15 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 		playlistResponse := playlistItemsList(service, part, playlistId, nextPageToken)
 
 		for _, playlistItem := range playlistResponse.Items {
-			title := playlistItem.Snippet.Title
+			title := strings.ToLower(playlistItem.Snippet.Title)
 			videoId := playlistItem.Snippet.ResourceId.VideoId
+			for i := range undesiredVideoTitles {
+				if strings.Contains(title, undesiredVideoTitles[i]) {
+					title = strings.Replace(title, undesiredVideoTitles[i], "", -1)
+				} else {
+					continue
+				}
+			}
 			playlist = append(playlist, title)
 			fmt.Printf("%v, (%v)\r\n", title, videoId)
 		}
