@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -235,7 +236,17 @@ func saveToken(file string, token *oauth2.Token) {
 	defer f.Close()
 	json.NewEncoder(f).Encode(token)
 }
-
+func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.SearchListResponse {
+	part := []string{"id,snippet"}
+	var query = flag.String("query", videoName, "Search term")
+	var maxResults = flag.Int64("max-results", 1, "Max YouTube results")
+	call := service.Search.List(part).
+		Q(*query).
+		MaxResults(*maxResults)
+	response, err := call.Do()
+	handleError(err, "")
+	return response
+}
 func playlistItemsList(service *youtube.Service, part []string, playlistId string, pageToken string) *youtube.PlaylistItemListResponse {
 	call := service.PlaylistItems.List(part)
 	call = call.PlaylistId(playlistId)
@@ -323,21 +334,18 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 }
 
 func createYouTubePlaylist(playlist []string) {
-	/*ctx := context.Background()
-	b, err := ioutil.ReadFile("client_secret.json")
-	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
-	}
-
-	// If modifying these scopes, delete your previously saved credentials
-	// at ~/.credentials/youtube-go-quickstart.json
-	config, err := google.ConfigFromJSON(b, youtube.YoutubepartnerScope)
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
+	var videoIdList []string
 	client := getGoogleClient(youtube.YoutubepartnerScope)
-	service, err := youtube.NewService(ctx)
-	handleError(err, "Error creating YouTube client")*/
+	service, err := youtube.New(client)
+	if err != nil {
+		log.Fatalf("Error creating YouTube client: %v", err)
+	}
+	for i := range playlist {
+		videoSearch := getYoutubeVideoID(service, playlist[i])
+		for _, item := range videoSearch.Items {
+			videoIdList = append(videoIdList, item.Id.VideoId)
+		}
+	}
 	fmt.Println("created youtube playlist")
 	return
 }
