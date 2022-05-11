@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -11,6 +10,7 @@ import (
 	"google.golang.org/api/youtube/v3"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -238,13 +238,18 @@ func saveToken(file string, token *oauth2.Token) {
 }
 func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.SearchListResponse {
 	part := []string{"id,snippet"}
-	var query = flag.String("query", videoName, "Search term")
-	var maxResults = flag.Int64("max-results", 1, "Max YouTube results")
 	call := service.Search.List(part).
-		Q(*query).
-		MaxResults(*maxResults)
+		Q(videoName).
+		MaxResults(1)
 	response, err := call.Do()
 	handleError(err, "")
+	return response
+}
+func youtubePlaylistMaker(service *youtube.Service, part []string) *youtube.PlaylistSnippet {
+	call := service.Playlists.Insert(part, playlist)
+	response, err := call.Do()
+	handleError(err, "")
+	playlistId := response.Snippet.
 	return response
 }
 func playlistItemsList(service *youtube.Service, part []string, playlistId string, pageToken string) *youtube.PlaylistItemListResponse {
@@ -274,9 +279,8 @@ func determineFlow() (int, int) { //gets user input for program flow
 }
 
 func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a text file
-	playlistLength := 5
+	var playlist = []string{"ghost - cirice", "daftpunk - doin' it right"}
 	fmt.Println("Retrieved spotify playlist") //placeholder for testing
-	playlist := make([]string, playlistLength)
 	return playlist
 }
 
@@ -334,6 +338,7 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 }
 
 func createYouTubePlaylist(playlist []string) {
+	var part = []string{"id,snippet"}
 	var videoIdList []string
 	client := getGoogleClient(youtube.YoutubepartnerScope)
 	service, err := youtube.New(client)
@@ -346,6 +351,17 @@ func createYouTubePlaylist(playlist []string) {
 			videoIdList = append(videoIdList, item.Id.VideoId)
 		}
 	}
+	if len(videoIdList) <= 200 {
+
+	} else {
+		i := 0
+		howManyTimes := int(math.Ceil(float64(len(videoIdList) / 200)))
+		for i > howManyTimes {
+			youtubePlaylistMaker(service, part)
+			i += 1
+		}
+	}
+	fmt.Println(videoIdList[1])
 	fmt.Println("created youtube playlist")
 	return
 }
