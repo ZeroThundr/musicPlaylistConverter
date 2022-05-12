@@ -245,12 +245,11 @@ func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.Sear
 	handleError(err, "")
 	return response
 }
-func youtubePlaylistMaker(service *youtube.Service, part []string) *youtube.PlaylistSnippet {
-	call := service.Playlists.Insert(part, playlist)
+func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName youtube.PlaylistSnippet) string {
+	call := service.Playlists.Insert(part, playlistName)
 	response, err := call.Do()
 	handleError(err, "")
-	playlistId := response.Snippet.
-	return response
+	return response.Id
 }
 func playlistItemsList(service *youtube.Service, part []string, playlistId string, pageToken string) *youtube.PlaylistItemListResponse {
 	call := service.PlaylistItems.List(part)
