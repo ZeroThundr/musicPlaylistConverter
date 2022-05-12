@@ -245,8 +245,11 @@ func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.Sear
 	handleError(err, "")
 	return response
 }
-func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName youtube.PlaylistSnippet) string {
-	call := service.Playlists.Insert(part, playlistName)
+func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName *youtube.PlaylistSnippet) string {
+	playlist := &youtube.Playlist{
+		Snippet: playlistName,
+	}
+	call := service.Playlists.Insert(part, playlist)
 	response, err := call.Do()
 	handleError(err, "")
 	return response.Id
@@ -351,13 +354,22 @@ func createYouTubePlaylist(playlist []string) {
 		}
 	}
 	if len(videoIdList) <= 200 {
-
+		playlistDetails := &youtube.PlaylistSnippet{
+			Title: "Tree",
+		}
+		ytPlaylistId := youtubePlaylistMaker(service, part, playlistDetails)
 	} else {
 		i := 0
+		name := fmt.Sprintf("%v%d", "Playlist #", i+1)
 		howManyTimes := int(math.Ceil(float64(len(videoIdList) / 200)))
 		for i > howManyTimes {
-			youtubePlaylistMaker(service, part)
+			playlistDetails := &youtube.PlaylistSnippet{
+				Title: name,
+			}
 			i += 1
+			ytPlaylistId := youtubePlaylistMaker(service, part, playlistDetails)
+			for x := range videoIdList {
+			}
 		}
 	}
 	fmt.Println(videoIdList[1])
