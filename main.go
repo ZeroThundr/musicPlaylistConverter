@@ -245,7 +245,7 @@ func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.Sear
 	handleError(err, "")
 	return response
 }
-func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName *youtube.PlaylistSnippet) string {
+func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName *youtube.PlaylistSnippet) string { //creates an empty playlist and returns the ID
 	playlist := &youtube.Playlist{
 		Snippet: playlistName,
 	}
@@ -253,6 +253,24 @@ func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName 
 	response, err := call.Do()
 	handleError(err, "")
 	return response.Id
+}
+func addItemsToYoutubePlaylist(service *youtube.Service, playListId string, videoId string) *youtube.PlaylistItem {
+	part := []string{"id,snippet"}
+	resourceId := &youtube.ResourceId{
+		Kind:    "youtube#video",
+		VideoId: videoId,
+	}
+	videoResourceSnippet := &youtube.PlaylistItemSnippet{
+		PlaylistId: playListId,
+		ResourceId: resourceId,
+	}
+	videoResource := &youtube.PlaylistItem{
+		Snippet: videoResourceSnippet,
+	}
+	call := service.PlaylistItems.Insert(part, videoResource)
+	response, err := call.Do()
+	handleError(err, "")
+	return response
 }
 func playlistItemsList(service *youtube.Service, part []string, playlistId string, pageToken string) *youtube.PlaylistItemListResponse {
 	call := service.PlaylistItems.List(part)
@@ -353,22 +371,35 @@ func createYouTubePlaylist(playlist []string) {
 			videoIdList = append(videoIdList, item.Id.VideoId)
 		}
 	}
-	if len(videoIdList) <= 200 {
+	if len(videoIdList) < 200 {
 		playlistDetails := &youtube.PlaylistSnippet{
-			Title: "Tree",
+			Title: "Converted Playlist",
 		}
 		ytPlaylistId := youtubePlaylistMaker(service, part, playlistDetails)
+		for x := range videoIdList {
+			addItemsToYoutubePlaylist(service, ytPlaylistId, videoIdList[x])
+		}
 	} else {
 		i := 0
+		x := 0
 		name := fmt.Sprintf("%v%d", "Playlist #", i+1)
 		howManyTimes := int(math.Ceil(float64(len(videoIdList) / 200)))
-		for i > howManyTimes {
+		lenVideoIdList := len(videoIdList)
+		for i < howManyTimes {
+			c := 0
 			playlistDetails := &youtube.PlaylistSnippet{
 				Title: name,
 			}
 			i += 1
 			ytPlaylistId := youtubePlaylistMaker(service, part, playlistDetails)
-			for x := range videoIdList {
+			for x < lenVideoIdList {
+				if c < 200 {
+					addItemsToYoutubePlaylist(service, ytPlaylistId, videoIdList[x])
+					c += 1
+					x += 1
+				} else {
+					break
+				}
 			}
 		}
 	}
