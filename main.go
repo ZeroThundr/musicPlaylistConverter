@@ -2,7 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/zmb3/spotify"
+	_ "github.com/zmb3/spotify"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -69,6 +72,82 @@ For more information about the client_secrets.json file format, please visit:
 https://developers.google.com/api-client-library/python/guide/aaa_client_secrets
 `
 
+func SpotifyConfigFromJSON(jsonKey []byte, scope ...string) (*oauth2.Config, error) {
+	type cred struct {
+		ClientID     string   `json:"client_id"`
+		ClientSecret string   `json:"client_secret"`
+		RedirectURIs []string `json:"redirect_uris"`
+		AuthURI      string   `json:"auth_uri"`
+		TokenURI     string   `json:"token_uri"`
+		ResponseType string   `json:"response_type"`
+	}
+	var j struct {
+		Web       *cred `json:"web"`
+		Installed *cred `json:"installed"`
+	}
+	if err := json.Unmarshal(jsonKey, &j); err != nil {
+		return nil, err
+	}
+	var c *cred
+	switch {
+	case j.Web != nil:
+		c = j.Web
+	case j.Installed != nil:
+		c = j.Installed
+	default:
+		return nil, fmt.Errorf("oauth2/spotify: no credentials found")
+	}
+	if len(c.RedirectURIs) < 1 {
+		return nil, errors.New("oauth2/spotify: missing redirect URL in the client_credentials.json")
+	}
+	return &oauth2.Config{
+		ClientID:     c.ClientID,
+		ClientSecret: c.ClientSecret,
+		RedirectURL:  c.RedirectURIs[0],
+		Scopes:       scope,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  c.AuthURI,
+			TokenURL: c.TokenURI,
+		},
+	}, nil
+}
+func getSpotifyClient(scope string) *http.Client {
+	ctx := context.Background()
+	b, err := ioutil.ReadFile("spotifyClientSecret.json")
+	if err != nil {
+		log.Fatalf("Unable to read spotify client secret file: %v", err)
+	}
+	config, err := SpotifyConfigFromJSON(b, scope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	// Use a redirect URI like this for a web app. The redirect URI must be a
+	// valid one for your OAuth2 credentials.
+	config.RedirectURL = "http://localhost:8080"
+	// Use the following redirect URI if launchWebServer=false in oauth2.go
+	// config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
+
+	cacheFile, err := tokenCacheFile()
+	if err != nil {
+		log.Fatalf("Unable to get path to cached credential file. %v", err)
+	}
+	tok, err := tokenFromFile(cacheFile)
+	if err != nil {
+		authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+		if launchWebServer {
+			fmt.Println("Trying to get token from web")
+			tok, err = getTokenFromWeb(config, authURL)
+		} else {
+			fmt.Println("Trying to get token from prompt")
+			tok, err = getTokenFromPrompt(config, authURL)
+		}
+		if err == nil {
+			saveToken(cacheFile, tok)
+		}
+	}
+	return config.Client(ctx, tok)
+}
+
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
 func getGoogleClient(scope string) *http.Client {
@@ -76,7 +155,7 @@ func getGoogleClient(scope string) *http.Client {
 
 	b, err := ioutil.ReadFile("googleClientSecret.json")
 	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
+		log.Fatalf("Unable to read google client secret file: %v", err)
 	}
 
 	// If modifying the scope, delete your previously saved credentials
@@ -282,7 +361,14 @@ func playlistItemsList(service *youtube.Service, part []string, playlistId strin
 	handleError(err, "")
 	return response
 }
-
+func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []string {
+	var playlistItemsList []string
+	playlistItems, err := service.GetPlaylistTracks(playlistId)
+	if err != nil {
+		fmt.Print("Retreiving Playlist failed")
+	}
+	return playlistItemsList
+}
 func determineFlow() (int, int) { //gets user input for program flow
 	var start int
 	var finish int
@@ -299,7 +385,13 @@ func determineFlow() (int, int) { //gets user input for program flow
 }
 
 func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a text file
-	var playlist = []string{"ghost - cirice", "daftpunk - doin' it right"}
+	playlistId, err := fmt.Scan()
+	if err != nil {
+		fmt.Print("no input")
+	}
+	client := getSpotifyClient(spotify.ScopeUserReadPrivate)
+	service := spotify.NewClient(client)
+
 	fmt.Println("Retrieved spotify playlist") //placeholder for testing
 	return playlist
 }
