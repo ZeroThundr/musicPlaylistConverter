@@ -363,9 +363,18 @@ func playlistItemsList(service *youtube.Service, part []string, playlistId strin
 }
 func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []string {
 	var playlistItemsList []string
-	playlistItems, err := service.GetPlaylistTracks(playlistId)
+	maxResult:=50
+	options:=spotify.Options{
+		Limit: &maxResult,
+		Offset: ItemsPage
+	}
+	playlistTracks, err := service.GetPlaylistTracksOpt(playlistId, &options, "items(track(name))")
 	if err != nil {
-		fmt.Print("Retreiving Playlist failed")
+		fmt.Print("Retrieving Playlist failed")
+	}
+
+	for i := range playlistTracks.Tracks {
+
 	}
 	return playlistItemsList
 }
@@ -385,13 +394,11 @@ func determineFlow() (int, int) { //gets user input for program flow
 }
 
 func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a text file
-	playlistId, err := fmt.Scan()
-	if err != nil {
-		fmt.Print("no input")
-	}
+	var playlistId spotify.ID
+	fmt.Scan(&playlistId)
 	client := getSpotifyClient(spotify.ScopeUserReadPrivate)
 	service := spotify.NewClient(client)
-
+	playlist := spotifyPlaylistItems(service, playlistId)
 	fmt.Println("Retrieved spotify playlist") //placeholder for testing
 	return playlist
 }
