@@ -127,7 +127,7 @@ func getSpotifyClient(scope string) *http.Client {
 	// Use the following redirect URI if launchWebServer=false in oauth2.go
 	// config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
 
-	cacheFile, err := tokenCacheFile()
+	cacheFile, err := tokenCacheFile("spotify")
 	if err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
 	}
@@ -171,7 +171,7 @@ func getGoogleClient(scope string) *http.Client {
 	// Use the following redirect URI if launchWebServer=false in oauth2.go
 	// config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
 
-	cacheFile, err := tokenCacheFile()
+	cacheFile, err := tokenCacheFile("youtube")
 	if err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
 	}
@@ -268,7 +268,7 @@ func getTokenFromWeb(config *oauth2.Config, authURL string) (*oauth2.Token, erro
 		log.Fatalf("Unable to open authorization URL in web server: %v", err)
 	} else {
 		fmt.Println("Your browser has been opened to an authorization URL.",
-			" This program will resume once authorization has been provided.\n")
+			" This program will resume once authorization has been provided.")
 		fmt.Println(authURL)
 	}
 
@@ -279,7 +279,8 @@ func getTokenFromWeb(config *oauth2.Config, authURL string) (*oauth2.Token, erro
 
 // tokenCacheFile generates credential file path/filename.
 // It returns the generated credential path/filename.
-func tokenCacheFile() (string, error) {
+func tokenCacheFile(clientName string) (string, error) {
+	var fileName string = clientName + "-go.json"
 	usr, err := user.Current()
 	if err != nil {
 		return "", err
@@ -287,7 +288,7 @@ func tokenCacheFile() (string, error) {
 	tokenCacheDir := filepath.Join(usr.HomeDir, ".credentials")
 	os.MkdirAll(tokenCacheDir, 0700)
 	return filepath.Join(tokenCacheDir,
-		url.QueryEscape("youtube-go.json")), err
+		url.QueryEscape(fileName)), err
 }
 
 // tokenFromFile retrieves a Token from a given file path.
@@ -363,17 +364,39 @@ func playlistItemsList(service *youtube.Service, part []string, playlistId strin
 }
 func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []string {
 	var playlistItemsList []string
-	maxResult:=50
-	options:=spotify.Options{
-		Limit: &maxResult,
-		Offset: ItemsPage
+	maxResult := 50
+	itemsPage := 0
+	options := spotify.Options{
+		Limit:  &maxResult,
+		Offset: &itemsPage,
 	}
-	playlistTracks, err := service.GetPlaylistTracksOpt(playlistId, &options, "items(track(name))")
+	playlistTracks, err := service.GetPlaylistTracksOpt(playlistId, &options, "total,items(track(name))")
 	if err != nil {
-		fmt.Print("Retrieving Playlist failed")
+		fmt.Println("Retrieving Playlist failed")
 	}
+	pages := int(math.Ceil(float64(playlistTracks.Total) / 50))
 
-	for i := range playlistTracks.Tracks {
+	if playlistTracks.Total > 50 {
+		i := 0
+		x := 0
+		for i <= pages {
+			i++
+			x = 0
+			itemsPage = i * 50
+			for x <= 49 {
+				songName := playlistTracks.Tracks[x]
+				playlistItemsList = append(playlistItemsList, songName.Track.Name)
+				x++
+			}
+		}
+	} else {
+		i := 0
+		for i >= playlistTracks.Total {
+			songName := playlistTracks.Tracks[i]
+			fmt.Println(songName)
+			playlistItemsList = append(playlistItemsList, songName.Track.Name)
+			i++
+		}
 
 	}
 	return playlistItemsList
@@ -399,7 +422,7 @@ func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a 
 	client := getSpotifyClient(spotify.ScopeUserReadPrivate)
 	service := spotify.NewClient(client)
 	playlist := spotifyPlaylistItems(service, playlistId)
-	fmt.Println("Retrieved spotify playlist") //placeholder for testing
+	fmt.Println(playlist) //placeholder for testing
 	return playlist
 }
 
