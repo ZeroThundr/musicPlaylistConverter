@@ -427,6 +427,34 @@ func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a 
 }
 
 func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from the text file that is a playlist
+	client := getSpotifyClient(spotify.ScopePlaylistModifyPrivate)
+	service := spotify.NewClient(client)
+	userInfo, err := service.CurrentUser()
+	searchResultLimit := 1
+	options := spotify.Options{
+		Limit: &searchResultLimit,
+	}
+	var spotifyTrackIds []spotify.ID
+	if err != nil {
+		log.Fatalf("Unable to retrieve user info")
+	}
+	userId := userInfo.ID
+	playlistInfo, err := service.CreatePlaylistForUser(userId, "Converted Playlist", "", false)
+	if err != nil {
+		log.Fatalf("Unable to create playlist")
+	}
+	playlistId := playlistInfo.ID
+	for i := range playlist {
+		searchResults, err := service.SearchOpt(playlist[i], spotify.SearchTypeTrack, &options)
+		if err != nil {
+			fmt.Printf("%s : not found", playlist[i])
+			continue
+		}
+		songInfo := searchResults.Tracks.Tracks[0]
+		songId := songInfo.ID
+		spotifyTrackIds = append(spotifyTrackIds, songId)
+	}
+
 	fmt.Println("Added songs to Spotify")
 }
 
