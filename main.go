@@ -316,63 +316,18 @@ func saveToken(file string, token *oauth2.Token) {
 	defer f.Close()
 	json.NewEncoder(f).Encode(token)
 }
-func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.SearchListResponse {
-	part := []string{"id,snippet"}
-	call := service.Search.List(part).
-		Q(videoName).
-		MaxResults(1)
-	response, err := call.Do()
-	handleError(err, "")
-	return response
-}
-func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName *youtube.PlaylistSnippet) string { //creates an empty playlist and returns the ID
-	playlist := &youtube.Playlist{
-		Snippet: playlistName,
-	}
-	call := service.Playlists.Insert(part, playlist)
-	response, err := call.Do()
-	handleError(err, "")
-	return response.Id
-}
-func addItemsToYoutubePlaylist(service *youtube.Service, playListId string, videoId string) *youtube.PlaylistItem {
-	part := []string{"id,snippet"}
-	resourceId := &youtube.ResourceId{
-		Kind:    "youtube#video",
-		VideoId: videoId,
-	}
-	videoResourceSnippet := &youtube.PlaylistItemSnippet{
-		PlaylistId: playListId,
-		ResourceId: resourceId,
-	}
-	videoResource := &youtube.PlaylistItem{
-		Snippet: videoResourceSnippet,
-	}
-	call := service.PlaylistItems.Insert(part, videoResource)
-	response, err := call.Do()
-	handleError(err, "")
-	return response
-}
-func playlistItemsList(service *youtube.Service, part []string, playlistId string, pageToken string) *youtube.PlaylistItemListResponse {
-	call := service.PlaylistItems.List(part)
-	call = call.PlaylistId(playlistId)
-	if pageToken != "" {
-		call = call.PageToken(pageToken)
-	}
-	response, err := call.Do()
-	handleError(err, "")
-	return response
-}
+
 func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []string {
-	var playlistItemsList []string
+	var spotifyPlaylistItemsList []string
 	maxResult := 50
 	itemsPage := 0
 	options := spotify.Options{
 		Limit:  &maxResult,
 		Offset: &itemsPage,
 	}
-	playlistTracks, err := service.GetPlaylistTracksOpt(playlistId, &options, "total,items(track(name))")
+	playlistTracks, err := service.GetPlaylistTracksOpt(playlistId, &options, "total,items(track(name,artists))")
 	if err != nil {
-		fmt.Println("Retrieving Playlist failed")
+		log.Fatalf("Retrieving Playlist failed")
 	}
 	pages := int(math.Ceil(float64(playlistTracks.Total) / 50))
 
@@ -384,36 +339,28 @@ func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []strin
 			x = 0
 			itemsPage = i * 50
 			for x <= 49 {
-				songName := playlistTracks.Tracks[x]
-				playlistItemsList = append(playlistItemsList, songName.Track.Name)
+				songInfo := playlistTracks.Tracks[x]
+				songName := songInfo.Track.Name
+				songArtist := songInfo.Track.Artists[0].Name
+				searchQuery := songName + " - " + songArtist
+				spotifyPlaylistItemsList = append(spotifyPlaylistItemsList, searchQuery)
 				x++
 			}
 		}
 	} else {
 		i := 0
-		for i >= playlistTracks.Total {
-			songName := playlistTracks.Tracks[i]
+		for i < playlistTracks.Total {
+			songInfo := playlistTracks.Tracks[i]
+			songName := songInfo.Track.Name
+			songArtist := songInfo.Track.Artists[0].Name
+			searchQuery := songName + songArtist
 			fmt.Println(songName)
-			playlistItemsList = append(playlistItemsList, songName.Track.Name)
+			spotifyPlaylistItemsList = append(spotifyPlaylistItemsList, searchQuery)
 			i++
 		}
 
 	}
-	return playlistItemsList
-}
-func determineFlow() (int, int) { //gets user input for program flow
-	var start int
-	var finish int
-	chooser := []string{"Spotify", "YouTube" /*, "Apple Music"*/}
-	fmt.Println("1. Spotify " + "| 2. YouTube " /*+"| 3. Apple Music"*/)
-	fmt.Println("What are you converting from?")
-	fmt.Scan(&start)
-	//ask what they are converting to, and assign to finish
-	fmt.Println("What are you converting to?")
-	fmt.Scan(&finish)
-	fmt.Println("You are converting from", chooser[start-1], "to", chooser[finish-1])
-	fmt.Println(start, finish)
-	return start, finish
+	return spotifyPlaylistItemsList
 }
 
 func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a text file
@@ -431,6 +378,7 @@ func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from 
 	service := spotify.NewClient(client)
 	userInfo, err := service.CurrentUser()
 	searchResultLimit := 1
+	spotifyAddTrackLimit := 100
 	options := spotify.Options{
 		Limit: &searchResultLimit,
 	}
@@ -444,20 +392,45 @@ func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from 
 		log.Fatalf("Unable to create playlist")
 	}
 	playlistId := playlistInfo.ID
-	for i := range playlist {
-		searchResults, err := service.SearchOpt(playlist[i], spotify.SearchTypeTrack, &options)
-		if err != nil {
-			fmt.Printf("%s : not found", playlist[i])
-			continue
+	if len(playlist) > spotifyAddTrackLimit {
+		x := 0
+		for i := range playlist {
+			if x < spotifyAddTrackLimit {
+				searchResults, err := service.SearchOpt(playlist[i], spotify.SearchTypeTrack, &options)
+				if err != nil {
+					fmt.Printf("%s : not found/n", playlist[i])
+					continue
+				}
+				songId := searchResults.Tracks.Tracks[0].ID
+				spotifyTrackIds = append(spotifyTrackIds, songId)
+				x += 1
+			} else {
+				snapshotId, err := service.AddTracksToPlaylist(playlistId, spotifyTrackIds...)
+				if err != nil {
+					log.Fatalf("Track ID:%s could not be added to Playlist ID: %s/n", spotifyTrackIds, playlistId)
+				}
+				fmt.Println(snapshotId)
+				x = 0
+			}
 		}
-		songInfo := searchResults.Tracks.Tracks[0]
-		songId := songInfo.ID
-		spotifyTrackIds = append(spotifyTrackIds, songId)
+	} else {
+		for i := range playlist {
+			searchResults, err := service.SearchOpt(playlist[i], spotify.SearchTypeTrack, &options)
+			if err != nil {
+				fmt.Printf("%s : not found", playlist[i])
+				continue
+			}
+			songId := searchResults.Tracks.Tracks[0].ID
+			spotifyTrackIds = append(spotifyTrackIds, songId)
+		}
+		snapshotId, err := service.AddTracksToPlaylist(playlistId, spotifyTrackIds...)
+		if err != nil {
+			log.Fatalf("Track ID:%s could not be added to Playlist ID: %s/n", spotifyTrackIds, playlistId)
+		}
+		fmt.Println(snapshotId)
 	}
-
 	fmt.Println("Added songs to Spotify")
 }
-
 func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a text file
 	playlist := make([]string, 0)
 	part := []string{"snippet"}
@@ -507,6 +480,53 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 	return playlist
 }
 
+func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.SearchListResponse {
+	part := []string{"id,snippet"}
+	call := service.Search.List(part).
+		Q(videoName).
+		MaxResults(1)
+	response, err := call.Do()
+	handleError(err, "")
+	return response
+}
+func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName *youtube.PlaylistSnippet) string { //creates an empty playlist and returns the ID
+	playlist := &youtube.Playlist{
+		Snippet: playlistName,
+	}
+	call := service.Playlists.Insert(part, playlist)
+	response, err := call.Do()
+	handleError(err, "")
+	return response.Id
+}
+func addItemsToYoutubePlaylist(service *youtube.Service, playListId string, videoId string) *youtube.PlaylistItem {
+	part := []string{"id,snippet"}
+	resourceId := &youtube.ResourceId{
+		Kind:    "youtube#video",
+		VideoId: videoId,
+	}
+	videoResourceSnippet := &youtube.PlaylistItemSnippet{
+		PlaylistId: playListId,
+		ResourceId: resourceId,
+	}
+	videoResource := &youtube.PlaylistItem{
+		Snippet: videoResourceSnippet,
+	}
+	call := service.PlaylistItems.Insert(part, videoResource)
+	response, err := call.Do()
+	handleError(err, "")
+	return response
+}
+func playlistItemsList(service *youtube.Service, part []string, playlistId string, pageToken string) *youtube.PlaylistItemListResponse {
+	call := service.PlaylistItems.List(part)
+	call = call.PlaylistId(playlistId)
+	if pageToken != "" {
+		call = call.PageToken(pageToken)
+	}
+	response, err := call.Do()
+	handleError(err, "")
+	return response
+}
+
 func createYouTubePlaylist(playlist []string) {
 	var part = []string{"id,snippet"}
 	var videoIdList []string
@@ -553,10 +573,26 @@ func createYouTubePlaylist(playlist []string) {
 			}
 		}
 	}
-	fmt.Println(videoIdList[1])
+	fmt.Println(videoIdList[0])
 	fmt.Println("created youtube playlist")
 	return
 }
+
+func determineFlow() (int, int) { //gets user input for program flow
+	var start int
+	var finish int
+	chooser := []string{"Spotify", "YouTube" /*, "Apple Music"*/}
+	fmt.Println("1. Spotify " + "| 2. YouTube " /*+"| 3. Apple Music"*/)
+	fmt.Println("What are you converting from?")
+	fmt.Scan(&start)
+	//ask what they are converting to, and assign to finish
+	fmt.Println("What are you converting to?")
+	fmt.Scan(&finish)
+	fmt.Println("You are converting from", chooser[start-1], "to", chooser[finish-1])
+	fmt.Println(start, finish)
+	return start, finish
+}
+
 func main() {
 	var start int
 	var finish int
