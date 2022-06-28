@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/zmb3/spotify"
-	_ "github.com/zmb3/spotify"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -21,6 +20,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 )
@@ -362,13 +362,35 @@ func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []strin
 	}
 	return spotifyPlaylistItemsList
 }
+func playlistIDFromURL(service string) string { //extracts playlist id from url based on which service is being used
+	var playlistURL string
+	switch service {
+	case "spotify":
+		var re = regexp.MustCompile(`(?P<spotifyURL>https://open.spotify.com/playlist/)(?P<id>[A-Za-z0-9]{22})`)
+		_, err := fmt.Scan(&playlistURL)
+		if err != nil {
+			fmt.Println("Please try again")
+			playlistIDFromURL("spotify")
+		}
+		if re.MatchString(playlistURL) {
+			matches := re.FindStringSubmatch(playlistURL)
+			indexID:=re.SubexpIndex("id")
+			return matches[indexID]
+		} else {
+			fmt.Println("Please try again")
+			playlistIDFromURL("spotify")
+		}
+	case "youtube":
 
+	}
+}
 func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a text file
-	var playlistId spotify.ID
-	fmt.Scan(&playlistId)
+	var spotifyID spotify.ID
 	client := getSpotifyClient(spotify.ScopeUserReadPrivate)
 	service := spotify.NewClient(client)
-	playlist := spotifyPlaylistItems(service, playlistId)
+	playlistId := playlistIDFromURL("spotify")
+	spotifyID = spotify.ID(playlistId)
+	playlist := spotifyPlaylistItems(service, spotifyID)
 	fmt.Println(playlist) //placeholder for testing
 	return playlist
 }
