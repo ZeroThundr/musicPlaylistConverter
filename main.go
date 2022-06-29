@@ -316,8 +316,47 @@ func saveToken(file string, token *oauth2.Token) {
 	defer f.Close()
 	json.NewEncoder(f).Encode(token)
 }
-
-func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []string {
+func playlistIDFromURL(service string) string { //extracts playlist id from url based on which service is being used
+	//only returns the ID portion of the URLS
+	var playlistURL string
+	var playlistID string
+	switch service {
+	case "spotify":
+		var re = regexp.MustCompile(`(?P<spotifyURL>\Qhttps://open.spotify.com/playlist/\E)(?P<id>[A-Za-z0-9]{22})`) //spotify playlist URL format
+		_, err := fmt.Scan(&playlistURL)
+		if err != nil {
+			fmt.Println("Please try again")
+			playlistIDFromURL("spotify")
+		}
+		if re.MatchString(playlistURL) {
+			matches := re.FindStringSubmatch(playlistURL)
+			indexID := re.SubexpIndex("id")
+			playlistID = matches[indexID]
+		} else {
+			fmt.Println("Please try again")
+			playlistIDFromURL("spotify")
+		}
+	case "youtube":
+		var re = regexp.MustCompile(`(?m)(?P<youtubeurl>\Qhttps://www.youtube.com/playlist?list=\E)(?P<id>.{34})`) //youtube URL format
+		_, err := fmt.Scan(&playlistURL)
+		if err != nil {
+			fmt.Println("please try again")
+			playlistIDFromURL("youtube")
+		}
+		if re.MatchString(playlistURL) {
+			matches := re.FindStringSubmatch(playlistURL)
+			indexID := re.SubexpIndex("id")
+			playlistID = matches[indexID]
+		} else {
+			fmt.Println("Please input a valid YouTube playlist ID")
+			playlistIDFromURL("youtube")
+		}
+	default:
+		log.Fatalf("INVALID SERVICE")
+	}
+	return playlistID
+}
+func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []string { //gets list of spotify tracks in a playlist
 	var spotifyPlaylistItemsList []string
 	maxResult := 50
 	itemsPage := 0
@@ -325,24 +364,24 @@ func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []strin
 		Limit:  &maxResult,
 		Offset: &itemsPage,
 	}
-	playlistTracks, err := service.GetPlaylistTracksOpt(playlistId, &options, "total,items(track(name,artists))")
+	playlistTracks, err := service.GetPlaylistTracksOpt(playlistId, &options, "total,items(track(name,artists))") //returns only the track name and artist
 	if err != nil {
 		log.Fatalf("Retrieving Playlist failed")
 	}
 	pages := int(math.Ceil(float64(playlistTracks.Total) / 50))
 
-	if playlistTracks.Total > 50 {
+	if playlistTracks.Total > 50 { //Spotify can only grab 50 items at a time from a playlist, if the playlist is bigger than 50 items it iterates through multiple times
 		i := 0
 		x := 0
 		for i <= pages {
 			i++
 			x = 0
-			itemsPage = i * 50
+			itemsPage = i * 50 //next page of results
 			for x <= 49 {
 				songInfo := playlistTracks.Tracks[x]
 				songName := songInfo.Track.Name
 				songArtist := songInfo.Track.Artists[0].Name
-				searchQuery := songName + " - " + songArtist
+				searchQuery := songName + " - " + songArtist //concatenate song name and artist name for more accurate search
 				spotifyPlaylistItemsList = append(spotifyPlaylistItemsList, searchQuery)
 				x++
 			}
@@ -353,7 +392,7 @@ func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []strin
 			songInfo := playlistTracks.Tracks[i]
 			songName := songInfo.Track.Name
 			songArtist := songInfo.Track.Artists[0].Name
-			searchQuery := songName + songArtist
+			searchQuery := songName + " - " + songArtist
 			fmt.Println(songName)
 			spotifyPlaylistItemsList = append(spotifyPlaylistItemsList, searchQuery)
 			i++
@@ -361,28 +400,6 @@ func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []strin
 
 	}
 	return spotifyPlaylistItemsList
-}
-func playlistIDFromURL(service string) string { //extracts playlist id from url based on which service is being used
-	var playlistURL string
-	switch service {
-	case "spotify":
-		var re = regexp.MustCompile(`(?P<spotifyURL>https://open.spotify.com/playlist/)(?P<id>[A-Za-z0-9]{22})`)
-		_, err := fmt.Scan(&playlistURL)
-		if err != nil {
-			fmt.Println("Please try again")
-			playlistIDFromURL("spotify")
-		}
-		if re.MatchString(playlistURL) {
-			matches := re.FindStringSubmatch(playlistURL)
-			indexID:=re.SubexpIndex("id")
-			return matches[indexID]
-		} else {
-			fmt.Println("Please try again")
-			playlistIDFromURL("spotify")
-		}
-	case "youtube":
-
-	}
 }
 func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a text file
 	var spotifyID spotify.ID
@@ -456,7 +473,6 @@ func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from 
 func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a text file
 	playlist := make([]string, 0)
 	part := []string{"snippet"}
-	trimThis := "https://www.youtube.com/playlist?list="
 	undesiredVideoTitles := []string{"[official music video]", "[official lyric video]", "[official video]", "[official audio]", "[audio]", "[video]", "[animated music video]", "(official music video)", "(official video)", "(official audio)", "(audio)", "(video)", "(animated music video)"}
 	client := getGoogleClient(youtube.YoutubeReadonlyScope)
 	service, err := youtube.New(client)
@@ -465,10 +481,7 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 		log.Fatalf("Error creating YouTube client: %v", err)
 	}
 
-	var playlistId string // Print the playlist ID for the list of uploaded videos.
-	fmt.Println("Please input a link to your playlist or your playlist ID")
-	fmt.Scan(&playlistId)
-	playlistId = strings.TrimPrefix(playlistId, trimThis)
+	playlistId := playlistIDFromURL("youtube") // Print the playlist ID for the list of uploaded videos.
 	fmt.Printf("Videos in list %s\r\n", playlistId)
 
 	nextPageToken := ""
@@ -502,7 +515,7 @@ func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a 
 	return playlist
 }
 
-func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.SearchListResponse {
+func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.SearchListResponse { //gets individual video IDs
 	part := []string{"id,snippet"}
 	call := service.Search.List(part).
 		Q(videoName).
@@ -520,7 +533,7 @@ func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName 
 	handleError(err, "")
 	return response.Id
 }
-func addItemsToYoutubePlaylist(service *youtube.Service, playListId string, videoId string) *youtube.PlaylistItem {
+func addItemsToYoutubePlaylist(service *youtube.Service, playListId string, videoId string) *youtube.PlaylistItem { //adds videos to playlist
 	part := []string{"id,snippet"}
 	resourceId := &youtube.ResourceId{
 		Kind:    "youtube#video",
@@ -538,7 +551,7 @@ func addItemsToYoutubePlaylist(service *youtube.Service, playListId string, vide
 	handleError(err, "")
 	return response
 }
-func playlistItemsList(service *youtube.Service, part []string, playlistId string, pageToken string) *youtube.PlaylistItemListResponse {
+func playlistItemsList(service *youtube.Service, part []string, playlistId string, pageToken string) *youtube.PlaylistItemListResponse { //grabs all the items in a YouTube playlist
 	call := service.PlaylistItems.List(part)
 	call = call.PlaylistId(playlistId)
 	if pageToken != "" {
@@ -549,7 +562,7 @@ func playlistItemsList(service *youtube.Service, part []string, playlistId strin
 	return response
 }
 
-func createYouTubePlaylist(playlist []string) {
+func createYouTubePlaylist(playlist []string) { //creates a YouTube playlist and adds the songs listed in the playlist slice to it
 	var part = []string{"id,snippet"}
 	var videoIdList []string
 	client := getGoogleClient(youtube.YoutubepartnerScope)
@@ -557,13 +570,13 @@ func createYouTubePlaylist(playlist []string) {
 	if err != nil {
 		log.Fatalf("Error creating YouTube client: %v", err)
 	}
-	for i := range playlist {
+	for i := range playlist { //gets Video IDs of songs by using the YouTube search method
 		videoSearch := getYoutubeVideoID(service, playlist[i])
 		for _, item := range videoSearch.Items {
 			videoIdList = append(videoIdList, item.Id.VideoId)
 		}
 	}
-	if len(videoIdList) < 200 {
+	if len(videoIdList) < 200 { //YouTube has a 200 video per playlist limit, this splits the songs into multiple playlists if it is bigger then 200
 		playlistDetails := &youtube.PlaylistSnippet{
 			Title: "Converted Playlist",
 		}
@@ -614,7 +627,19 @@ func determineFlow() (int, int) { //gets user input for program flow
 	fmt.Println(start, finish)
 	return start, finish
 }
-
+func cleanUp() { //deletes credential files
+	services := []string{"youtube", "spotify"}
+	user, err := user.Current()
+	if err != nil {
+		log.Fatalf("could not retrieve current user")
+	}
+	for i := range services {
+		err = os.Remove(user.HomeDir + ".credentials\\" + services[i] + "-go.json")
+		if err != nil {
+			log.Fatalf("error deleting file")
+		}
+	}
+}
 func main() {
 	var start int
 	var finish int
@@ -626,11 +651,11 @@ func main() {
 			fmt.Println("Please make sure your start and ending services are different")
 			start, finish = determineFlow()
 			continue
-		} else if start != 1 && start != 2 && start != 3 { // check start to make sure it is an available option
+		} else if start != 1 && start != 2 /* && start != 3 */ { // check start to make sure it is an available option
 			fmt.Println("Please select a provided option.")
 			start, finish = determineFlow()
 			continue
-		} else if finish != 1 && finish != 2 && finish != 3 { // check finish to make sure it is an available option
+		} else if finish != 1 && finish != 2 /* && finish != 3*/ { // check finish to make sure it is an available option
 			fmt.Println("Please select a provided option.")
 			start, finish = determineFlow()
 			continue
@@ -649,10 +674,11 @@ func main() {
 	switch finish {
 	case 1:
 		createSpotifyPlaylist(playlist)
-		println(playlist[1])
+		fmt.Println("completed!")
 	case 2:
 		createYouTubePlaylist(playlist)
-		println(playlist[1])
+		fmt.Println("Completed!")
 
 	}
+	cleanUp()
 }
