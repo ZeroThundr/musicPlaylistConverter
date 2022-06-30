@@ -17,9 +17,13 @@ import (
 	"runtime"
 )
 
-/*const missingClientSecretsMessage = `
-Please configure OAuth 2.0
-`*/
+type Service int
+
+const (
+	SPOTIFY Service = iota
+	YOUTUBE
+)
+
 func handleError(err error, message string) {
 	if message == "" {
 		message = "Error making API call"
@@ -96,7 +100,7 @@ func openURL(url string) error {
 	case "linux":
 		err = exec.Command("xdg-open", url).Start()
 	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", "http://localhost:4001/").Start()
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 	case "darwin":
 		err = exec.Command("open", url).Start()
 	default:
@@ -232,12 +236,12 @@ func playlistIDFromURL(service string) string { //extracts playlist id from url 
 	return playlistID
 }
 
-func determineFlow() (int, int) { //gets user input for program flow
-	var start int
-	var finish int
+func determineFlow() (Service, Service) { //gets user input for program flow
+	var start Service
+	var finish Service
 	var err error
 	chooser := []string{"Spotify", "YouTube" /*, "Apple Music"*/}
-	fmt.Println("1. Spotify " + "| 2. YouTube " /*+"| 3. Apple Music"*/)
+	fmt.Println("0. Spotify " + "| 1. YouTube " /*+"| 3. Apple Music"*/)
 	fmt.Println("What are you converting from?")
 	_, err = fmt.Scan(&start)
 	if err != nil {
@@ -251,7 +255,7 @@ func determineFlow() (int, int) { //gets user input for program flow
 		fmt.Println("please try again.")
 		determineFlow()
 	}
-	fmt.Println("You are converting from", chooser[start-1], "to", chooser[finish-1])
+	fmt.Println("You are converting from", chooser[start], "to", chooser[finish])
 	fmt.Println(start, finish)
 	return start, finish
 }
@@ -262,16 +266,16 @@ func cleanUp() { //deletes credential files
 		log.Fatalf("could not retrieve current user")
 	}
 	for i := range services {
-		err = os.Remove(usr.HomeDir + ".credentials\\" + services[i] + "-go.json")
+		err = os.Remove(usr.HomeDir + "/.credentials/" + services[i] + "-go.json")
 		if err != nil {
 			log.Fatalf("error deleting file")
 		}
 	}
 }
 func main() {
-	var start int
-	var finish int
-	var playlist []string
+	var start Service
+	var finish Service
+	var playlist Playlist
 
 	start, finish = determineFlow() //Ask what they are converting to and from, and assign to start and finish
 	for {                           //checks that available options were selected and that start and finish are different. If either is false loop until both are true.
@@ -279,11 +283,11 @@ func main() {
 			fmt.Println("Please make sure your start and ending services are different")
 			start, finish = determineFlow()
 			continue
-		} else if start != 1 && start != 2 /* && start != 3 */ { // check start to make sure it is an available option
+		} else if start != SPOTIFY && start != YOUTUBE /* && start != 3 */ { // check start to make sure it is an available option
 			fmt.Println("Please select a provided option.")
 			start, finish = determineFlow()
 			continue
-		} else if finish != 1 && finish != 2 /* && finish != 3*/ { // check finish to make sure it is an available option
+		} else if finish != SPOTIFY && finish != YOUTUBE /* && finish != 3*/ { // check finish to make sure it is an available option
 			fmt.Println("Please select a provided option.")
 			start, finish = determineFlow()
 			continue
@@ -293,18 +297,18 @@ func main() {
 	}
 	//start getting the playlist
 	switch start {
-	case 1:
-		playlist = getSpotifyPlaylist()
-	case 2:
-		playlist = getYouTubePlaylist()
+	case SPOTIFY:
+		playlist = NewSpotify()
+	case YOUTUBE:
+		playlist = NewYoutube()
 	}
 	//copy playlist to other service
 	switch finish {
-	case 1:
-		createSpotifyPlaylist(playlist)
+	case SPOTIFY:
+		createSpotifyPlaylist(playlist.GetSongs())
 		fmt.Println("completed!")
-	case 2:
-		createYouTubePlaylist(playlist)
+	case YOUTUBE:
+		createYouTubePlaylist(playlist.GetSongs())
 		fmt.Println("Completed!")
 
 	}

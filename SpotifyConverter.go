@@ -133,17 +133,6 @@ func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []strin
 	}
 	return spotifyPlaylistItemsList
 }
-func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a text file
-	var spotifyID spotify.ID
-	client := getSpotifyClient(spotify.ScopeUserReadPrivate)
-	service := spotify.NewClient(client)
-	playlistId := playlistIDFromURL("spotify")
-	spotifyID = spotify.ID(playlistId)
-	playlist := spotifyPlaylistItems(service, spotifyID)
-	fmt.Println(playlist) //placeholder for testing
-	return playlist
-}
-
 func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from the text file that is a playlist
 	client := getSpotifyClient(spotify.ScopePlaylistModifyPrivate)
 	service := spotify.NewClient(client)
@@ -191,8 +180,17 @@ func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from 
 				fmt.Printf("%s : not found", playlist[i])
 				continue
 			}
-			songId := searchResults.Tracks.Tracks[0].ID
-			spotifyTrackIds = append(spotifyTrackIds, songId)
+			searchResultsLen := len(searchResults.Tracks.Tracks)
+
+			if searchResultsLen != 0 {
+				songId := searchResults.Tracks.Tracks[0].ID
+				spotifyTrackIds = append(spotifyTrackIds, songId)
+				continue
+			} else {
+				fmt.Printf("%s : not found/n", playlist[i])
+				continue
+			}
+
 		}
 		snapshotId, err := service.AddTracksToPlaylist(playlistId, spotifyTrackIds...)
 		if err != nil {
