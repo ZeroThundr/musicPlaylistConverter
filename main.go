@@ -2,17 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"github.com/zmb3/spotify"
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	_ "golang.org/x/oauth2/spotify"
-	"google.golang.org/api/youtube/v3"
-	"io/ioutil"
 	"log"
-	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -22,7 +15,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strings"
 )
 
 /*const missingClientSecretsMessage = `
@@ -72,125 +64,8 @@ For more information about the client_secrets.json file format, please visit:
 https://developers.google.com/api-client-library/python/guide/aaa_client_secrets
 `
 
-func SpotifyConfigFromJSON(jsonKey []byte, scope ...string) (*oauth2.Config, error) {
-	type cred struct {
-		ClientID     string   `json:"client_id"`
-		ClientSecret string   `json:"client_secret"`
-		RedirectURIs []string `json:"redirect_uris"`
-		AuthURI      string   `json:"auth_uri"`
-		TokenURI     string   `json:"token_uri"`
-		ResponseType string   `json:"response_type"`
-	}
-	var j struct {
-		Web       *cred `json:"web"`
-		Installed *cred `json:"installed"`
-	}
-	if err := json.Unmarshal(jsonKey, &j); err != nil {
-		return nil, err
-	}
-	var c *cred
-	switch {
-	case j.Web != nil:
-		c = j.Web
-	case j.Installed != nil:
-		c = j.Installed
-	default:
-		return nil, fmt.Errorf("oauth2/spotify: no credentials found")
-	}
-	if len(c.RedirectURIs) < 1 {
-		return nil, errors.New("oauth2/spotify: missing redirect URL in the client_credentials.json")
-	}
-	return &oauth2.Config{
-		ClientID:     c.ClientID,
-		ClientSecret: c.ClientSecret,
-		RedirectURL:  c.RedirectURIs[0],
-		Scopes:       scope,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  c.AuthURI,
-			TokenURL: c.TokenURI,
-		},
-	}, nil
-}
-func getSpotifyClient(scope string) *http.Client {
-	ctx := context.Background()
-	b, err := ioutil.ReadFile("spotifyClientSecret.json")
-	if err != nil {
-		log.Fatalf("Unable to read spotify client secret file: %v", err)
-	}
-	config, err := SpotifyConfigFromJSON(b, scope)
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-	// Use a redirect URI like this for a web app. The redirect URI must be a
-	// valid one for your OAuth2 credentials.
-	config.RedirectURL = "http://localhost:8080"
-	// Use the following redirect URI if launchWebServer=false in oauth2.go
-	// config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
-
-	cacheFile, err := tokenCacheFile("spotify")
-	if err != nil {
-		log.Fatalf("Unable to get path to cached credential file. %v", err)
-	}
-	tok, err := tokenFromFile(cacheFile)
-	if err != nil {
-		authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-		if launchWebServer {
-			fmt.Println("Trying to get token from web")
-			tok, err = getTokenFromWeb(config, authURL)
-		} else {
-			fmt.Println("Trying to get token from prompt")
-			tok, err = getTokenFromPrompt(config, authURL)
-		}
-		if err == nil {
-			saveToken(cacheFile, tok)
-		}
-	}
-	return config.Client(ctx, tok)
-}
-
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
-func getGoogleClient(scope string) *http.Client {
-	ctx := context.Background()
-
-	b, err := ioutil.ReadFile("googleClientSecret.json")
-	if err != nil {
-		log.Fatalf("Unable to read google client secret file: %v", err)
-	}
-
-	// If modifying the scope, delete your previously saved credentials
-	// at ~/.credentials/youtube-go.json
-	config, err := google.ConfigFromJSON(b, scope)
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-
-	// Use a redirect URI like this for a web app. The redirect URI must be a
-	// valid one for your OAuth2 credentials.
-	config.RedirectURL = "http://localhost:8080"
-	// Use the following redirect URI if launchWebServer=false in oauth2.go
-	// config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
-
-	cacheFile, err := tokenCacheFile("youtube")
-	if err != nil {
-		log.Fatalf("Unable to get path to cached credential file. %v", err)
-	}
-	tok, err := tokenFromFile(cacheFile)
-	if err != nil {
-		authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-		if launchWebServer {
-			fmt.Println("Trying to get token from web")
-			tok, err = getTokenFromWeb(config, authURL)
-		} else {
-			fmt.Println("Trying to get token from prompt")
-			tok, err = getTokenFromPrompt(config, authURL)
-		}
-		if err == nil {
-			saveToken(cacheFile, tok)
-		}
-	}
-	return config.Client(ctx, tok)
-}
 
 // startWebServer starts a web server that listens on http://localhost:8080.
 // The webserver waits for an oauth code in the three-legged auth flow.
@@ -280,7 +155,7 @@ func getTokenFromWeb(config *oauth2.Config, authURL string) (*oauth2.Token, erro
 // tokenCacheFile generates credential file path/filename.
 // It returns the generated credential path/filename.
 func tokenCacheFile(clientName string) (string, error) {
-	var fileName string = clientName + "-go.json"
+	var fileName = clientName + "-go.json"
 	usr, err := user.Current()
 	if err != nil {
 		return "", err
@@ -356,285 +231,38 @@ func playlistIDFromURL(service string) string { //extracts playlist id from url 
 	}
 	return playlistID
 }
-func spotifyPlaylistItems(service spotify.Client, playlistId spotify.ID) []string { //gets list of spotify tracks in a playlist
-	var spotifyPlaylistItemsList []string
-	maxResult := 50
-	itemsPage := 0
-	options := spotify.Options{
-		Limit:  &maxResult,
-		Offset: &itemsPage,
-	}
-	playlistTracks, err := service.GetPlaylistTracksOpt(playlistId, &options, "total,items(track(name,artists))") //returns only the track name and artist
-	if err != nil {
-		log.Fatalf("Retrieving Playlist failed")
-	}
-	pages := int(math.Ceil(float64(playlistTracks.Total) / 50))
-
-	if playlistTracks.Total > 50 { //Spotify can only grab 50 items at a time from a playlist, if the playlist is bigger than 50 items it iterates through multiple times
-		i := 0
-		x := 0
-		for i <= pages {
-			i++
-			x = 0
-			itemsPage = i * 50 //next page of results
-			for x <= 49 {
-				songInfo := playlistTracks.Tracks[x]
-				songName := songInfo.Track.Name
-				songArtist := songInfo.Track.Artists[0].Name
-				searchQuery := songName + " - " + songArtist //concatenate song name and artist name for more accurate search
-				spotifyPlaylistItemsList = append(spotifyPlaylistItemsList, searchQuery)
-				x++
-			}
-		}
-	} else {
-		i := 0
-		for i < playlistTracks.Total {
-			songInfo := playlistTracks.Tracks[i]
-			songName := songInfo.Track.Name
-			songArtist := songInfo.Track.Artists[0].Name
-			searchQuery := songName + " - " + songArtist
-			fmt.Println(songName)
-			spotifyPlaylistItemsList = append(spotifyPlaylistItemsList, searchQuery)
-			i++
-		}
-
-	}
-	return spotifyPlaylistItemsList
-}
-func getSpotifyPlaylist() []string { //gets spotify playlist and writes it to a text file
-	var spotifyID spotify.ID
-	client := getSpotifyClient(spotify.ScopeUserReadPrivate)
-	service := spotify.NewClient(client)
-	playlistId := playlistIDFromURL("spotify")
-	spotifyID = spotify.ID(playlistId)
-	playlist := spotifyPlaylistItems(service, spotifyID)
-	fmt.Println(playlist) //placeholder for testing
-	return playlist
-}
-
-func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from the text file that is a playlist
-	client := getSpotifyClient(spotify.ScopePlaylistModifyPrivate)
-	service := spotify.NewClient(client)
-	userInfo, err := service.CurrentUser()
-	searchResultLimit := 1
-	spotifyAddTrackLimit := 100
-	options := spotify.Options{
-		Limit: &searchResultLimit,
-	}
-	var spotifyTrackIds []spotify.ID
-	if err != nil {
-		log.Fatalf("Unable to retrieve user info")
-	}
-	userId := userInfo.ID
-	playlistInfo, err := service.CreatePlaylistForUser(userId, "Converted Playlist", "", false)
-	if err != nil {
-		log.Fatalf("Unable to create playlist")
-	}
-	playlistId := playlistInfo.ID
-	if len(playlist) > spotifyAddTrackLimit {
-		x := 0
-		for i := range playlist {
-			if x < spotifyAddTrackLimit {
-				searchResults, err := service.SearchOpt(playlist[i], spotify.SearchTypeTrack, &options)
-				if err != nil {
-					fmt.Printf("%s : not found/n", playlist[i])
-					continue
-				}
-				songId := searchResults.Tracks.Tracks[0].ID
-				spotifyTrackIds = append(spotifyTrackIds, songId)
-				x += 1
-			} else {
-				snapshotId, err := service.AddTracksToPlaylist(playlistId, spotifyTrackIds...)
-				if err != nil {
-					log.Fatalf("Track ID:%s could not be added to Playlist ID: %s/n", spotifyTrackIds, playlistId)
-				}
-				fmt.Println(snapshotId)
-				x = 0
-			}
-		}
-	} else {
-		for i := range playlist {
-			searchResults, err := service.SearchOpt(playlist[i], spotify.SearchTypeTrack, &options)
-			if err != nil {
-				fmt.Printf("%s : not found", playlist[i])
-				continue
-			}
-			songId := searchResults.Tracks.Tracks[0].ID
-			spotifyTrackIds = append(spotifyTrackIds, songId)
-		}
-		snapshotId, err := service.AddTracksToPlaylist(playlistId, spotifyTrackIds...)
-		if err != nil {
-			log.Fatalf("Track ID:%s could not be added to Playlist ID: %s/n", spotifyTrackIds, playlistId)
-		}
-		fmt.Println(snapshotId)
-	}
-	fmt.Println("Added songs to Spotify")
-}
-func getYouTubePlaylist() []string { //gets YouTube playlist and writes it to a text file
-	playlist := make([]string, 0)
-	part := []string{"snippet"}
-	undesiredVideoTitles := []string{"[official music video]", "[official lyric video]", "[official video]", "[official audio]", "[audio]", "[video]", "[animated music video]", "(official music video)", "(official video)", "(official audio)", "(audio)", "(video)", "(animated music video)"}
-	client := getGoogleClient(youtube.YoutubeReadonlyScope)
-	service, err := youtube.New(client)
-
-	if err != nil {
-		log.Fatalf("Error creating YouTube client: %v", err)
-	}
-
-	playlistId := playlistIDFromURL("youtube") // Print the playlist ID for the list of uploaded videos.
-	fmt.Printf("Videos in list %s\r\n", playlistId)
-
-	nextPageToken := ""
-	for {
-		// Retrieve next set of items in the playlist.
-		playlistResponse := playlistItemsList(service, part, playlistId, nextPageToken)
-
-		for _, playlistItem := range playlistResponse.Items {
-			title := strings.ToLower(playlistItem.Snippet.Title)
-			videoId := playlistItem.Snippet.ResourceId.VideoId
-			for i := range undesiredVideoTitles {
-				if strings.Contains(title, undesiredVideoTitles[i]) {
-					title = strings.Replace(title, undesiredVideoTitles[i], "", -1)
-				} else {
-					continue
-				}
-			}
-			playlist = append(playlist, title)
-			fmt.Printf("%v, (%v)\r\n", title, videoId)
-		}
-
-		// Set the token to retrieve the next page of results
-		// or exit the loop if all results have been retrieved.
-		nextPageToken = playlistResponse.NextPageToken
-		if nextPageToken == "" {
-			break
-		}
-		fmt.Println()
-	}
-
-	return playlist
-}
-
-func getYoutubeVideoID(service *youtube.Service, videoName string) *youtube.SearchListResponse { //gets individual video IDs
-	part := []string{"id,snippet"}
-	call := service.Search.List(part).
-		Q(videoName).
-		MaxResults(1)
-	response, err := call.Do()
-	handleError(err, "")
-	return response
-}
-func youtubePlaylistMaker(service *youtube.Service, part []string, playlistName *youtube.PlaylistSnippet) string { //creates an empty playlist and returns the ID
-	playlist := &youtube.Playlist{
-		Snippet: playlistName,
-	}
-	call := service.Playlists.Insert(part, playlist)
-	response, err := call.Do()
-	handleError(err, "")
-	return response.Id
-}
-func addItemsToYoutubePlaylist(service *youtube.Service, playListId string, videoId string) *youtube.PlaylistItem { //adds videos to playlist
-	part := []string{"id,snippet"}
-	resourceId := &youtube.ResourceId{
-		Kind:    "youtube#video",
-		VideoId: videoId,
-	}
-	videoResourceSnippet := &youtube.PlaylistItemSnippet{
-		PlaylistId: playListId,
-		ResourceId: resourceId,
-	}
-	videoResource := &youtube.PlaylistItem{
-		Snippet: videoResourceSnippet,
-	}
-	call := service.PlaylistItems.Insert(part, videoResource)
-	response, err := call.Do()
-	handleError(err, "")
-	return response
-}
-func playlistItemsList(service *youtube.Service, part []string, playlistId string, pageToken string) *youtube.PlaylistItemListResponse { //grabs all the items in a YouTube playlist
-	call := service.PlaylistItems.List(part)
-	call = call.PlaylistId(playlistId)
-	if pageToken != "" {
-		call = call.PageToken(pageToken)
-	}
-	response, err := call.Do()
-	handleError(err, "")
-	return response
-}
-
-func createYouTubePlaylist(playlist []string) { //creates a YouTube playlist and adds the songs listed in the playlist slice to it
-	var part = []string{"id,snippet"}
-	var videoIdList []string
-	client := getGoogleClient(youtube.YoutubepartnerScope)
-	service, err := youtube.New(client)
-	if err != nil {
-		log.Fatalf("Error creating YouTube client: %v", err)
-	}
-	for i := range playlist { //gets Video IDs of songs by using the YouTube search method
-		videoSearch := getYoutubeVideoID(service, playlist[i])
-		for _, item := range videoSearch.Items {
-			videoIdList = append(videoIdList, item.Id.VideoId)
-		}
-	}
-	if len(videoIdList) < 200 { //YouTube has a 200 video per playlist limit, this splits the songs into multiple playlists if it is bigger then 200
-		playlistDetails := &youtube.PlaylistSnippet{
-			Title: "Converted Playlist",
-		}
-		ytPlaylistId := youtubePlaylistMaker(service, part, playlistDetails)
-		for x := range videoIdList {
-			addItemsToYoutubePlaylist(service, ytPlaylistId, videoIdList[x])
-		}
-	} else {
-		i := 0
-		x := 0
-		name := fmt.Sprintf("%v%d", "Playlist #", i+1)
-		howManyTimes := int(math.Ceil(float64(len(videoIdList) / 200)))
-		lenVideoIdList := len(videoIdList)
-		for i < howManyTimes {
-			c := 0
-			playlistDetails := &youtube.PlaylistSnippet{
-				Title: name,
-			}
-			i += 1
-			ytPlaylistId := youtubePlaylistMaker(service, part, playlistDetails)
-			for x < lenVideoIdList {
-				if c < 200 {
-					addItemsToYoutubePlaylist(service, ytPlaylistId, videoIdList[x])
-					c += 1
-					x += 1
-				} else {
-					break
-				}
-			}
-		}
-	}
-	fmt.Println(videoIdList[0])
-	fmt.Println("created youtube playlist")
-	return
-}
 
 func determineFlow() (int, int) { //gets user input for program flow
 	var start int
 	var finish int
+	var err error
 	chooser := []string{"Spotify", "YouTube" /*, "Apple Music"*/}
 	fmt.Println("1. Spotify " + "| 2. YouTube " /*+"| 3. Apple Music"*/)
 	fmt.Println("What are you converting from?")
-	fmt.Scan(&start)
+	_, err = fmt.Scan(&start)
+	if err != nil {
+		fmt.Println("please try again.")
+		determineFlow()
+	}
 	//ask what they are converting to, and assign to finish
 	fmt.Println("What are you converting to?")
-	fmt.Scan(&finish)
+	_, err = fmt.Scan(&finish)
+	if err != nil {
+		fmt.Println("please try again.")
+		determineFlow()
+	}
 	fmt.Println("You are converting from", chooser[start-1], "to", chooser[finish-1])
 	fmt.Println(start, finish)
 	return start, finish
 }
 func cleanUp() { //deletes credential files
 	services := []string{"youtube", "spotify"}
-	user, err := user.Current()
+	usr, err := user.Current()
 	if err != nil {
 		log.Fatalf("could not retrieve current user")
 	}
 	for i := range services {
-		err = os.Remove(user.HomeDir + ".credentials\\" + services[i] + "-go.json")
+		err = os.Remove(usr.HomeDir + ".credentials\\" + services[i] + "-go.json")
 		if err != nil {
 			log.Fatalf("error deleting file")
 		}
