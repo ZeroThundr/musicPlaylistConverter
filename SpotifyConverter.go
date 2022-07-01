@@ -152,7 +152,7 @@ func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from 
 		log.Fatalf("Unable to create playlist")
 	}
 	playlistId := playlistInfo.ID
-	if len(playlist) > spotifyAddTrackLimit {
+	if len(playlist) > spotifyAddTrackLimit { //spotify allows up to 100 songs to be added at a time, this checks if the total playlist length is greater than that and changes accordingly
 		x := 0
 		for i := range playlist {
 			if x < spotifyAddTrackLimit {
@@ -161,9 +161,18 @@ func createSpotifyPlaylist(playlist []string) { //creates spotify playlist from 
 					fmt.Printf("%s : not found/n", playlist[i])
 					continue
 				}
-				songId := searchResults.Tracks.Tracks[0].ID
-				spotifyTrackIds = append(spotifyTrackIds, songId)
-				x += 1
+				searchResultsLen := len(searchResults.Tracks.Tracks)
+
+				if searchResultsLen != 0 {
+					songId := searchResults.Tracks.Tracks[0].ID
+					spotifyTrackIds = append(spotifyTrackIds, songId)
+					x++
+					continue
+				} else {
+					fmt.Printf("%s : not found/n", playlist[i])
+					x++
+					continue
+				}
 			} else {
 				snapshotId, err := service.AddTracksToPlaylist(playlistId, spotifyTrackIds...)
 				if err != nil {
