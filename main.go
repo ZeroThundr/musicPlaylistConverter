@@ -202,6 +202,7 @@ func playlistIDFromURL(service string) string { //extracts playlist id from url 
 	switch service {
 	case "spotify":
 		var re = regexp.MustCompile(`(?P<spotifyURL>\Qhttps://open.spotify.com/playlist/\E)(?P<id>[A-Za-z0-9]{22})`) //spotify playlist URL format
+		fmt.Println("Enter the Spotify playlist URL")
 		_, err := fmt.Scan(&playlistURL)
 		if err != nil {
 			fmt.Println("Please try again")
@@ -217,6 +218,7 @@ func playlistIDFromURL(service string) string { //extracts playlist id from url 
 		}
 	case "youtube":
 		var re = regexp.MustCompile(`(?m)(?P<youtubeurl>\Qhttps://www.youtube.com/playlist?list=\E)(?P<id>.{34})`) //youtube URL format
+		fmt.Println("Enter the YouTube playlist URL")
 		_, err := fmt.Scan(&playlistURL)
 		if err != nil {
 			fmt.Println("please try again")
